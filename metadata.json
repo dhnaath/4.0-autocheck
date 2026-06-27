@@ -1,0 +1,6 @@
+{
+  "name": "AutoCheck",
+  "description": "An imported GitHub application (dhnaath/2.0-AutoCheck) for managing vehicle operations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
