@@ -126,9 +126,13 @@ export function TripModal({ isOpen, onClose, onSave, dashboardEfficiency, active
             Batal
           </button>
           <button
-            onClick={handleSave}
-            disabled={!origin || !destination || distVal <= 0}
-            className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors text-sm"
+            onClick={() => {
+              if (!origin) { alert("Titik Awal wajib diisi!"); return; }
+              if (!destination) { alert("Titik Akhir wajib diisi!"); return; }
+              if (distVal <= 0) { alert("Total Jarak wajib diisi!"); return; }
+              handleSave();
+            }}
+            className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors text-sm"
           >
             Simpan
           </button>

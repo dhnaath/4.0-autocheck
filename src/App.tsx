@@ -99,6 +99,7 @@ import {
   Sprout,
   Star,
   ToggleLeft,
+  ListFilter,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 
@@ -409,8 +410,10 @@ const SlideToConfirm = ({
     isDragging.current = false;
     knobRef.current?.releasePointerCapture(e.pointerId);
 
-    if (draggedDist.current < 5 && offset < 5 && !confirmedState) {
-      if (onPlusClick) onPlusClick();
+    if (draggedDist.current < 10 && offset < 10 && !confirmedState) {
+      if (onPlusClick) {
+        onPlusClick();
+      }
     }
 
     if (!confirmedState) {
@@ -422,7 +425,7 @@ const SlideToConfirm = ({
     <div
       ref={containerRef}
       onClick={(e) => {
-        if (draggedDist.current < 5 && offset < 5 && !confirmedState) {
+        if (draggedDist.current < 20 && offset < 20 && !confirmedState) {
           if (onClickTrack) onClickTrack();
           else if (onPlusClick) onPlusClick();
         }
@@ -430,7 +433,7 @@ const SlideToConfirm = ({
       className={`relative w-full h-[64px] rounded-full p-1.5 flex items-center transition-colors overflow-hidden cursor-pointer ${
         confirmedState ? "bg-emerald-500 " : `${colorClass} `
       }`}
-      style={{ touchAction: "pan-y" }}
+      style={{ touchAction: "manipulation" }}
     >
       <div
         className={`absolute inset-0 flex items-center pointer-events-none transition-opacity duration-300 ${offset > 20 ? "opacity-0" : "opacity-100"}`}
@@ -445,14 +448,6 @@ const SlideToConfirm = ({
       </div>
 
       <div
-        className="absolute left-0 bottom-0 top-0 bg-white/20 transition-all pointer-events-none rounded-full"
-        style={{
-          width: `calc(${offset}px + 60px)`,
-          display: confirmedState ? "none" : "block",
-        }}
-      />
-
-      <div
         ref={knobRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -460,12 +455,12 @@ const SlideToConfirm = ({
         onPointerCancel={handlePointerUp}
         onClick={(e) => {
           e.stopPropagation();
-          if (draggedDist.current < 5 && offset < 5 && !confirmedState) {
+          if (draggedDist.current < 20 && offset < 20 && !confirmedState) {
             if (onPlusClick) onPlusClick();
           }
         }}
         className={`h-[52px] w-[52px] rounded-full bg-white flex items-center justify-center cursor-grab active:cursor-grabbing z-10 transition-transform ${isDragging.current ? "duration-0" : "duration-300"}`}
-        style={{ transform: `translateX(${offset}px)` }}
+        style={{ transform: `translateX(${offset}px)`, touchAction: "none" }}
       >
         {confirmedState ? (
           <Check className="w-6 h-6 text-emerald-500" strokeWidth={3} />
@@ -479,6 +474,35 @@ const SlideToConfirm = ({
 
 export default function App() {
   // --- Persistent States from LocalStorage ---
+  const [hasOnboarded, setHasOnboarded] = useState<boolean>(() => {
+    return localStorage.getItem("fc_has_onboarded") === "true";
+  });
+
+  const [initialOdometer, setInitialOdometer] = useState<number>(() => {
+    const saved = localStorage.getItem("fc_initial_odometer");
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const [vehicleModel, setVehicleModel] = useState<string>(() => {
+    return localStorage.getItem("fc_vehicle_model") || "BMW E46";
+  });
+
+  const [vehicleType, setVehicleType] = useState<"mobil" | "motor">(() => {
+    return (localStorage.getItem("fc_vehicle_type") as "mobil" | "motor") || "mobil";
+  });
+
+  const [motorType, setMotorType] = useState<"bensin" | "hybrid" | "ev">(() => {
+    return (localStorage.getItem("fc_motor_type") as "bensin" | "hybrid" | "ev") || "bensin";
+  });
+
+  const [transmissionType, setTransmissionType] = useState<"manual" | "otomatis">(() => {
+    return (localStorage.getItem("fc_transmission_type") as "manual" | "otomatis") || "otomatis";
+  });
+
+  const [onboardStep, setOnboardStep] = useState<number>(1);
+
+  const [onboardOdoInput, setOnboardOdoInput] = useState<string>("");
+
   const [lang, setLang] = useState<"id" | "en">(() => {
     return (localStorage.getItem("fc_lang") as "id" | "en") || "id";
   });
@@ -533,13 +557,7 @@ export default function App() {
   });
 
   const [spareParts, setSpareParts] = useState<any[]>(() => {
-    const saved = localStorage.getItem("fc_spareparts_v3");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.length > 0 && parsed[0].category) return parsed;
-    }
-    // Initial default spare parts setup to demo statuses
-    return [
+    const defaultParts = [
       { id: "1", name: "Filter Bahan Bakar", category: "Mesin", icon: "Fuel", lastOdo: 0, lastDate: Date.now(), lifespanKm: 10000, lifespanMonths: 12 },
       { id: "2", name: "Oli Mesin", category: "Mesin", icon: "Droplet", lastOdo: 0, lastDate: Date.now(), lifespanKm: 2500, lifespanMonths: 3 },
       { id: "3", name: "Filter Udara", category: "Mesin", icon: "Wind", lastOdo: 0, lastDate: Date.now(), lifespanKm: 15000, lifespanMonths: 12 },
@@ -556,9 +574,23 @@ export default function App() {
       { id: "14", name: "Filter Oli Mesin", category: "Mesin", icon: "Filter", lastOdo: 0, lastDate: Date.now(), lifespanKm: 5000, lifespanMonths: 12 },
       { id: "15", name: "Tensioner V-Belt", category: "Transmisi", icon: "Cog", lastOdo: 0, lastDate: Date.now(), lifespanKm: 20000, lifespanMonths: 24 },
       { id: "16", name: "Minyak Rem", category: "Roda & Rem", icon: "Droplet", lastOdo: 0, lastDate: Date.now(), lifespanKm: 20000, lifespanMonths: 24 },
-      { id: "17", name: "Ban", category: "Roda & Rem", icon: "CircleDashed", lastOdo: 0, lastDate: Date.now(), lifespanKm: 50000, lifespanMonths: 36 },
+      { id: "17a", name: "Ban Depan", category: "Roda & Rem", icon: "CircleDashed", lastOdo: 0, lastDate: Date.now(), lifespanKm: 30000, lifespanMonths: 24 },
+      { id: "17b", name: "Ban Belakang", category: "Roda & Rem", icon: "CircleDashed", lastOdo: 0, lastDate: Date.now(), lifespanKm: 30000, lifespanMonths: 24 },
       { id: "18", name: "Oli Shock Breaker", category: "Suspensi", icon: "Activity", lastOdo: 0, lastDate: Date.now(), lifespanKm: 15000, lifespanMonths: 24 }
     ];
+
+    const saved = localStorage.getItem("fc_spareparts_v4") || localStorage.getItem("fc_spareparts_v3");
+    if (saved) {
+      let parsed = JSON.parse(saved);
+      if (parsed.length > 0 && parsed[0].category) {
+         // Auto-add new default parts if they don't exist yet
+         const existingNames = new Set(parsed.map((p: any) => p.name));
+         const toAdd = defaultParts.filter(dp => !existingNames.has(dp.name));
+         // Also handle "Ban" to "Ban Depan" / "Ban Belakang" migration if we want, but adding them is safer
+         return [...parsed, ...toAdd];
+      }
+    }
+    return defaultParts;
   });
 
   // Save changes to spare parts
@@ -743,6 +775,7 @@ export default function App() {
     "harian" | "mingguan" | "bulanan" | "semesteran" | "tahunan"
   >("bulanan");
   const [showDashboardMenu, setShowDashboardMenu] = useState<boolean>(false);
+  const [showDashboardAddMenu, setShowDashboardAddMenu] = useState<boolean>(false);
   const [showHistoryMenu, setShowHistoryMenu] = useState<boolean>(false);
   const [showHistoryAddMenu, setShowHistoryAddMenu] = useState<boolean>(false);
   const [historyMode, setHistoryMode] = useState<
@@ -768,6 +801,18 @@ export default function App() {
     useState<boolean>(false);
 
   // Save changes to localStorage on State Change
+  useEffect(() => {
+    localStorage.setItem("fc_vehicle_model", vehicleModel);
+  }, [vehicleModel]);
+  useEffect(() => {
+    localStorage.setItem("fc_vehicle_type", vehicleType);
+  }, [vehicleType]);
+  useEffect(() => {
+    localStorage.setItem("fc_motor_type", motorType);
+  }, [motorType]);
+  useEffect(() => {
+    localStorage.setItem("fc_transmission_type", transmissionType);
+  }, [transmissionType]);
   useEffect(() => {
     localStorage.setItem("fc_vehicle_plate", vehiclePlate);
   }, [vehiclePlate]);
@@ -988,14 +1033,18 @@ export default function App() {
 
   // --- Odometer trackers ---
   const lastLoggedOdometer = useMemo(() => {
-    if (history.length === 0) return null;
+    if (history.length === 0) {
+      return localStorage.getItem("fc_initial_odometer") !== null ? initialOdometer : null;
+    }
     return history[history.length - 1].odoBefore;
-  }, [history]);
+  }, [history, initialOdometer]);
 
   const baselineOdometer = useMemo(() => {
-    if (history.length === 0) return null;
+    if (history.length === 0) {
+      return localStorage.getItem("fc_initial_odometer") !== null ? initialOdometer : null;
+    }
     return history[0].odoBefore;
-  }, [history]);
+  }, [history, initialOdometer]);
 
   // Active weekly expenditures
   const weeklyExpenditures = useMemo(() => {
@@ -1144,6 +1193,22 @@ export default function App() {
           ? { ...p, lastOdo: lastLoggedOdometer || 0, lastDate: Date.now() }
           : p,
       ),
+    );
+  };
+
+  const handleCompleteOnboarding = (odo: number) => {
+    localStorage.setItem("fc_initial_odometer", odo.toString());
+    localStorage.setItem("fc_has_onboarded", "true");
+    setInitialOdometer(odo);
+    setHasOnboarded(true);
+
+    // Update all default spare parts lastOdo to start fresh at the new odometer
+    setSpareParts((prev) =>
+      prev.map((part) => ({
+        ...part,
+        lastOdo: odo,
+        lastDate: Date.now(),
+      }))
     );
   };
 
@@ -1704,6 +1769,14 @@ export default function App() {
   const handleResetWipeData = () => {
     if (confirm(t.confirm_wipe)) {
       localStorage.clear();
+      setHasOnboarded(false);
+      setInitialOdometer(0);
+      setOnboardOdoInput("");
+      setVehicleModel("BMW E46");
+      setVehicleType("mobil");
+      setMotorType("bensin");
+      setTransmissionType("otomatis");
+      setOnboardStep(1);
       setLang("id");
       setCurrency("IDR");
       setSeparator("dot");
@@ -1733,38 +1806,579 @@ export default function App() {
       <div className="bg-slate-50 flex items-center justify-center p-0 sm:p-4 md:p-8 fixed inset-0 sm:static sm:h-[100dvh] overscroll-none">
         {/* Device mock style wrapper */}
         <div className="w-full h-full max-w-md bg-white sm:border border-slate-200 sm:rounded-[32px] sm: overflow-hidden flex flex-col relative sm:max-h-[820px]">
-          {/* APPLICATION MAIN CONTENT AREA */}
-          <div className="flex-grow flex flex-col overflow-y-auto scrollbar-hide pb-[120px]">
+          
+          {!hasOnboarded ? (
+            <div className="w-full h-full bg-[#000000] flex flex-col relative overflow-hidden font-sans text-white">
+              {/* Top Navigation Row */}
+              <div className="flex items-center justify-between px-4 pt-4 pb-2 z-10 select-none">
+                {onboardStep === 2 ? (
+                  <button
+                    onClick={() => setOnboardStep(1)}
+                    className="flex items-center text-[#3b82f6] font-semibold text-base gap-1 hover:opacity-85 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+                    <span>{lang === "id" ? "Kembali" : "Back"}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setHasOnboarded(true)}
+                    className="text-slate-500 hover:text-white transition-colors cursor-pointer p-1"
+                  >
+                    <LucideIcons.X className="w-6 h-6 stroke-[2]" />
+                  </button>
+                )}
+                
+                {/* Step indicator */}
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest px-3">
+                  {lang === "id" ? `Langkah ${onboardStep} dari 2` : `Step ${onboardStep} of 2`}
+                </div>
+              </div>
+
+              {/* Onboarding content */}
+              <div className="flex-1 flex flex-col overflow-y-auto scrollbar-hide px-6 pb-6 justify-between">
+                
+                {onboardStep === 1 ? (
+                  /* STEP 1: CONFIGURE VEHICLE */
+                  <div className="flex flex-col gap-6">
+                    <div className="flex flex-col items-center">
+                      <h1 className="text-2xl font-extrabold tracking-tight text-white text-center mt-2 mb-2">
+                        {lang === "id" ? "Atur Kendaraan Anda" : "Set Up Your Vehicle"}
+                      </h1>
+                      <p className="text-sm text-slate-400 text-center leading-relaxed max-w-[310px] mx-auto">
+                        {lang === "id"
+                          ? "Beri tahu kami tentang kendaraan Anda agar kami dapat menyesuaikan pelacakan perawatannya."
+                          : "Tell us about your vehicle so we can customize its maintenance tracking."}
+                      </p>
+                    </div>
+
+                    {/* Form Field: Model Name */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+                        {lang === "id" ? "Nama Model" : "Model Name"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={
+                          vehicleType === "mobil"
+                            ? (lang === "id" ? "misalnya, BMW E46" : "e.g., BMW E46")
+                            : (lang === "id" ? "misalnya, Honda Beat" : "e.g., Honda Beat")
+                        }
+                        value={vehicleModel}
+                        onChange={(e) => setVehicleModel(e.target.value)}
+                        className="w-full bg-[#1c1c1e] text-white py-3.5 px-5 rounded-2xl border border-slate-800 outline-none focus:border-slate-600 text-left text-base font-medium placeholder-slate-600 transition-colors"
+                      />
+                    </div>
+
+                    {/* Option: Vehicle Type */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+                        {lang === "id" ? "Tipe kendaraan apa?" : "What type of vehicle?"}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => {
+                            setVehicleType("mobil");
+                            setMotorType("bensin");
+                          }}
+                           className={`flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl border transition-all cursor-pointer font-bold text-sm select-none ${
+                            vehicleType === "mobil"
+                              ? "border-[#3b82f6] text-[#3b82f6] bg-[#3b82f6]/10 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                              : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                          }`}
+                        >
+                          <LucideIcons.Car className="w-5 h-5 stroke-[2]" />
+                          <span>{lang === "id" ? "Mobil" : "Car"}</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setVehicleType("motor");
+                            setMotorType("bensin");
+                          }}
+                          className={`flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl border transition-all cursor-pointer font-bold text-sm select-none ${
+                            vehicleType === "motor"
+                              ? "border-[#3b82f6] text-[#3b82f6] bg-[#3b82f6]/10 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                              : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                          }`}
+                        >
+                          {/* Safe lookup for Motorcycle or Bike icon */}
+                          {(() => {
+                            const IconComponent = LucideIcons.Bike;
+                            return IconComponent ? <IconComponent className="w-5 h-5 stroke-[2]" /> : null;
+                          })()}
+                          <span>Motorbike</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Option: Fuel Type */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+                        {vehicleType === "motor"
+                          ? (lang === "id" ? "Tipe motor apa?" : "What type of motorbike?")
+                          : (lang === "id" ? "Tipe mobil apa?" : "What type of car?")
+                        }
+                      </label>
+                      <div className={`grid ${vehicleType === "mobil" ? "grid-cols-3" : "grid-cols-2"} gap-3`}>
+                        <button
+                          onClick={() => setMotorType("bensin")}
+                          className={`flex items-center justify-center gap-2 py-3.5 px-2 rounded-2xl border transition-all cursor-pointer font-bold text-xs sm:text-sm select-none ${
+                            motorType === "bensin"
+                              ? "border-[#3b82f6] text-[#3b82f6] bg-[#3b82f6]/10 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                              : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                          }`}
+                        >
+                          <LucideIcons.Fuel className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2]" />
+                          <span>Bensin</span>
+                        </button>
+
+                        {vehicleType === "mobil" && (
+                          <button
+                            onClick={() => setMotorType("hybrid")}
+                            className={`flex items-center justify-center gap-2 py-3.5 px-2 rounded-2xl border transition-all cursor-pointer font-bold text-xs sm:text-sm select-none ${
+                              motorType === "hybrid"
+                                ? "border-[#3b82f6] text-[#3b82f6] bg-[#3b82f6]/10 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                                : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                            }`}
+                          >
+                            {(() => {
+                              const LeafIcon = (LucideIcons as any).Leaf || LucideIcons.Sprout;
+                              return <LeafIcon className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2]" />;
+                            })()}
+                            <span>Hybrid</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => setMotorType("ev")}
+                          className={`flex items-center justify-center gap-2 py-3.5 px-2 rounded-2xl border transition-all cursor-pointer font-bold text-xs sm:text-sm select-none ${
+                            motorType === "ev"
+                              ? "border-[#3b82f6] text-[#3b82f6] bg-[#3b82f6]/10 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                              : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                          }`}
+                        >
+                          <LucideIcons.Zap className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2]" />
+                          <span>EV</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Option: Transmission Type */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+                        {lang === "id" ? "Tipe Transmisi" : "Transmission Type"}
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => setTransmissionType("manual")}
+                          className={`flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl border transition-all cursor-pointer font-bold text-sm select-none ${
+                            transmissionType === "manual"
+                              ? "border-[#f97316] text-[#f97316] bg-[#f97316]/10 shadow-[0_0_15px_rgba(249,115,22,0.15)]"
+                              : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                          }`}
+                        >
+                          {/* H-shifter line art SVG */}
+                          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current" strokeWidth={2.5}>
+                            <path d="M6 5v14M12 5v14M18 5v14M6 12h12" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span>Manual</span>
+                        </button>
+
+                        <button
+                          onClick={() => setTransmissionType("otomatis")}
+                          className={`flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl border transition-all cursor-pointer font-bold text-sm select-none ${
+                            transmissionType === "otomatis"
+                              ? "border-[#f97316] text-[#f97316] bg-[#f97316]/10 shadow-[0_0_15px_rgba(249,115,22,0.15)]"
+                              : "border-slate-800 text-slate-400 hover:border-slate-700 bg-[#0c0c0e]"
+                          }`}
+                        >
+                          <LucideIcons.Gauge className="w-5 h-5 stroke-[2]" />
+                          <span>{lang === "id" ? "Otomatis" : "Automatic"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* STEP 2: CONFIGURE ODOMETER */
+                  <div className="flex flex-col items-center">
+                    {/* Custom SVG Dashboard Illustration */}
+                    <div className="w-full flex justify-center py-2">
+                      <svg
+                        viewBox="0 0 200 160"
+                        className="w-full max-w-[220px] h-auto select-none drop-shadow-2xl"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle cx="100" cy="100" r="80" stroke="#1e293b" strokeWidth="12" strokeLinecap="round" strokeDasharray="300 400" transform="rotate(135 100 100)" />
+                        <circle cx="100" cy="100" r="80" stroke="#3b82f6" strokeWidth="12" strokeLinecap="round" strokeDasharray="200 400" transform="rotate(135 100 100)" />
+                        
+                        {/* Needle */}
+                        <g transform="rotate(45 100 100)">
+                          <path d="M96 100L100 40L104 100Z" fill="#ef4444" />
+                          <circle cx="100" cy="100" r="8" fill="#1e293b" stroke="#0f172a" strokeWidth="3" />
+                        </g>
+                        
+                        {/* Center Display */}
+                        <rect x="70" y="115" width="60" height="24" rx="4" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+                        <text x="100" y="126" fill="#64748b" fontSize="7" fontWeight="bold" textAnchor="middle" letterSpacing="0.05em">ODO</text>
+                        <text x="100" y="135" fill="#ffffff" fontSize="9" fontWeight="extrabold" textAnchor="middle" letterSpacing="0.02em">67,890</text>
+                        
+                        {/* Tick marks */}
+                        <path d="M35 100 L45 100" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+                        <path d="M155 100 L165 100" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+                        <path d="M100 35 L100 45" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+                        <path d="M54 54 L61 61" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+                        <path d="M146 54 L139 61" stroke="#475569" strokeWidth="3" strokeLinecap="round" />
+                      </svg>
+                    </div>
+
+                    <h1 className="text-2xl font-extrabold tracking-tight text-white text-center mt-6 mb-3">
+                      {lang === "id" ? "Masukkan Odometer Anda" : "Enter Your Odometer"}
+                    </h1>
+                    <p className="text-sm text-slate-400 text-center leading-relaxed max-w-[290px] mx-auto">
+                      {lang === "id"
+                        ? "Periksa dasbor Anda untuk pembacaan tersebut. Ini membantu kami memperkirakan penggunaan komponen."
+                        : "Check your dashboard for this reading. This helps us estimate component usage."}
+                    </p>
+
+                    {/* Input Form container */}
+                    <div className="w-full flex flex-col gap-2 mt-8">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider self-start pl-1">
+                        {lang === "id" ? "Odometer Saat Ini (km)" : "Current Odometer (km)"}
+                      </label>
+                      <input
+                        type="number"
+                        placeholder={lang === "id" ? "misalnya, 15000" : "e.g., 15000"}
+                        value={onboardOdoInput || ""}
+                        onChange={(e) => setOnboardOdoInput(e.target.value)}
+                        className="w-full bg-[#1c1c1e] text-white py-4 px-6 rounded-3xl border border-slate-800 outline-none focus:border-slate-600 text-center text-xl font-bold placeholder-slate-600 transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Bottom CTA Button */}
+                <div className="w-full pt-6">
+                  {onboardStep === 1 ? (
+                    <button
+                      onClick={() => {
+                        if (!vehicleModel.trim()) {
+                          alert(
+                            lang === "id"
+                              ? "Silakan masukkan nama model kendaraan Anda."
+                              : "Please enter your vehicle model name."
+                          );
+                          return;
+                        }
+                        setOnboardStep(2);
+                      }}
+                      className="w-full bg-[#3b82f6] text-white font-bold py-4 px-6 rounded-full hover:bg-blue-600 transition-all active:scale-98 tracking-wide text-center uppercase text-sm cursor-pointer"
+                    >
+                      {lang === "id" ? "Lanjut" : "Continue"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const odo = parseInt(onboardOdoInput, 10);
+                        if (isNaN(odo) || odo < 0) {
+                          alert(
+                            lang === "id"
+                              ? "Silakan masukkan angka odometer yang valid."
+                              : "Please enter a valid odometer reading."
+                          );
+                          return;
+                        }
+                        handleCompleteOnboarding(odo);
+                        setOnboardOdoInput(""); // Clear input
+                      }}
+                      className="w-full bg-[#2d2d30] text-white font-bold py-4 px-6 rounded-full hover:bg-slate-800 transition-all active:scale-98 tracking-wide text-center uppercase text-sm cursor-pointer"
+                    >
+                      {lang === "id" ? "Lanjut" : "Continue"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* APPLICATION FIXED HEADERS */}
+              <div className="flex-none bg-slate-50 px-4 pt-6 pb-4 border-b border-slate-200/50 z-30">
+                {activeTab === "fuel" && (
+                  <div className="flex items-center justify-between w-full animate-fade-in">
+                    <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
+                      <Fuel className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
+                      Bahan Bakar
+                    </h2>
+                    <div className="flex gap-2 items-center">
+                      <button
+                        onClick={() => setShowCalculatorModal(true)}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
+                      >
+                        <Calculator className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setShowFuelHistoryModal(true)}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
+                      >
+                        <LucideIcons.History className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setShowFuelSettingsModal(true)}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
+                      >
+                        <MoreHorizontal className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {activeTab === "parts" && (
+                  <div className="flex items-center justify-between w-full animate-fade-in">
+                    <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
+                      <Wrench className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
+                      Suku Cadang
+                    </h2>
+                    <div className="flex gap-2 items-center">
+                      <button
+                        onClick={openAddPart}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setShowPartsHistoryModal(true)}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
+                      >
+                        <LucideIcons.History className="w-5 h-5" />
+                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowPartsGroupingMenu(!showPartsGroupingMenu)}
+                          className="w-10 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center bg-white active:scale-95"
+                        >
+                          <ListFilter className="w-5 h-5 text-slate-500" />
+                        </button>
+                        <AnimatePresence>
+                          {showPartsGroupingMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="absolute right-0 top-[110%] w-48 bg-white rounded-2xl border border-slate-100 z-[100] py-2 overflow-hidden flex flex-col shadow-xl"
+                            >
+                              <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                Kelompokkan
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setPartsGrouping("kategori");
+                                  setShowPartsGroupingMenu(false);
+                                }}
+                                className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${partsGrouping === "kategori" ? "text-indigo-600 bg-indigo-50" : "text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                Kategori
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setPartsGrouping("status");
+                                  setShowPartsGroupingMenu(false);
+                                }}
+                                className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors ${partsGrouping === "status" ? "text-indigo-600 bg-indigo-50" : "text-slate-600 hover:bg-slate-50"}`}
+                              >
+                                Status Kondisi
+                              </button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {activeTab === "dashboard" && (
+                  <div className="flex items-center justify-between w-full animate-fade-in">
+                    <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
+                      <Gauge className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
+                      Dashboard
+                    </h2>
+                    <div className="flex gap-2 items-center">
+                      <button
+                        onClick={() => setActiveTab("history")}
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
+                      >
+                        <LucideIcons.History className="w-5 h-5" />
+                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowDashboardMenu(!showDashboardMenu)}
+                          className="w-10 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center bg-white active:scale-95"
+                        >
+                          <MoreHorizontal className="w-5 h-5 text-slate-500" />
+                        </button>
+                        <AnimatePresence>
+                          {showDashboardMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="absolute right-0 top-[110%] w-40 bg-white rounded-2xl border border-slate-100 z-[100] py-2 overflow-hidden flex flex-col"
+                            >
+                              {[
+                                "harian",
+                                "mingguan",
+                                "bulanan",
+                                "semesteran",
+                                "tahunan",
+                              ].map((mode) => (
+                                <button
+                                  key={mode}
+                                  onClick={() => {
+                                    setDashboardMode(mode as any);
+                                    setShowDashboardMenu(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-3 text-xs sm:text-sm font-bold capitalize transition-colors ${dashboardMode === mode ? "text-[#0f172b] bg-slate-50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
+                                >
+                                  {mode}
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {activeTab === "history" && (
+                  <div className="flex items-center justify-between w-full animate-fade-in">
+                    <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
+                      <MapPinned className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
+                      Aktivitas
+                    </h2>
+                    <div className="flex gap-2 items-center">
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowHistoryAddMenu(!showHistoryAddMenu)}
+                          className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors active:scale-95"
+                        >
+                          <Plus className="w-5 h-5 text-slate-500" />
+                        </button>
+                        <AnimatePresence>
+                          {showHistoryAddMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="absolute right-0 top-[110%] w-52 bg-white border border-slate-200 rounded-2xl z-50 overflow-hidden flex flex-col font-sans"
+                            >
+                              <button
+                                onClick={() => {
+                                  setShowHistoryAddMenu(false);
+                                  openIncomeModal();
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors border-b border-slate-100 flex items-center gap-2"
+                              >
+                                <TrendingUp className="w-4 h-4" />
+                                Pendapatan
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowHistoryAddMenu(false);
+                                  openExpenseModal();
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors border-b border-slate-100 flex items-center gap-2"
+                              >
+                                <TrendingDown className="w-4 h-4" />
+                                Pengeluaran
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowHistoryAddMenu(false);
+                                  setShowTripModal(true);
+                                }}
+                                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center gap-2"
+                              >
+                                <Compass className="w-4 h-4" />
+                                Perjalanan
+                              </button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowHistoryMenu(!showHistoryMenu)}
+                          className="w-10 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center bg-white active:scale-95"
+                        >
+                          <MoreHorizontal className="w-5 h-5 text-slate-500" />
+                        </button>
+                        <AnimatePresence>
+                          {showHistoryMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="absolute right-0 top-[110%] w-40 bg-white rounded-2xl border border-slate-100 z-[100] py-2 overflow-hidden flex flex-col"
+                            >
+                              {[
+                                "harian",
+                                "mingguan",
+                                "bulanan",
+                                "semesteran",
+                                "tahunan",
+                                "semua",
+                              ].map((mode) => (
+                                <button
+                                  key={mode}
+                                  onClick={() => {
+                                    setHistoryMode(mode as any);
+                                    setShowHistoryMenu(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-3 text-xs sm:text-sm font-bold capitalize transition-colors ${historyMode === mode ? "text-[#0f172b] bg-slate-50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
+                                >
+                                  {mode}
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {activeTab === "map" && (
+                  <div className="flex items-center justify-between w-full animate-fade-in">
+                    <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
+                      <MapPin className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
+                      Peta SPBU
+                    </h2>
+                  </div>
+                )}
+                {activeTab === "settings" && (
+                  <div className="flex items-center justify-between w-full animate-fade-in">
+                    <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
+                      {settingsTab === "main" ? (
+                        <>
+                          <SettingsIcon className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
+                          Pengaturan
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => setSettingsTab("main")} className="active:scale-95 mr-2">
+                            <ChevronLeft className="w-6 h-6 stroke-[3px]" />
+                          </button>
+                          {settingsTab === "localization" && "Lokalisasi"}
+                          {settingsTab === "data" && "Manajemen Data"}
+                          {settingsTab === "about" && "Tentang"}
+                        </>
+                      )}
+                    </h2>
+                  </div>
+                )}
+              </div>
+
+              {/* APPLICATION MAIN CONTENT AREA */}
+              <div className="flex-grow flex flex-col overflow-y-auto scrollbar-hide pb-[120px]">
             {/* TAB 1: FUEL VIEW */}
             {activeTab === "fuel" && (
-              <div className="px-4 py-6 flex flex-col gap-5 animate-fade-in relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
-                    <Fuel className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
-                    Bahan Bakar
-                  </h2>
-                  <div className="flex gap-2 items-center">
-                    <button
-                      onClick={() => setShowCalculatorModal(true)}
-                      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
-                    >
-                      <Calculator className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setShowFuelHistoryModal(true)}
-                      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
-                    >
-                      <LucideIcons.History className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setShowFuelSettingsModal(true)}
-                      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
-                    >
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
+              <div className="px-4 flex flex-col gap-5 animate-fade-in relative z-10 pt-4 pb-8">
                 <div className="px-4 flex flex-col gap-4">
                   {/* STATUS KENDARAAN SECTION */}
                   <div className="grid grid-cols-[1fr_7fr_2fr] items-stretch gap-3 relative z-10 w-full">
@@ -2147,8 +2761,8 @@ export default function App() {
                       }
                       slideIcon={
                         <Plus
-                          className={`w-6 h-6 ${fuelColorConfig.text.split(" ")[0]}`}
-                          strokeWidth={2}
+                          className={`w-6 h-6 ${fuelColorConfig.bg.replace("bg-", "text-")}`}
+                          strokeWidth={3}
                         />
                       }
                     />
@@ -2227,52 +2841,7 @@ export default function App() {
 
             {/* TAB: DASHBOARD OVERVIEW */}
             {activeTab === "dashboard" && (
-              <div className="px-4 py-6 flex flex-col gap-6 animate-fade-in">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
-                    <Gauge className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
-                    Dashboard
-                  </h2>
-
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowDashboardMenu(!showDashboardMenu)}
-                      className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center bg-white active:scale-95"
-                    >
-                      <MoreHorizontal className="w-5 h-5 text-slate-500" />
-                    </button>
-
-                    <AnimatePresence>
-                      {showDashboardMenu && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="absolute right-0 top-[110%] w-40 bg-white rounded-2xl border border-slate-100 z-[100] py-2 overflow-hidden flex flex-col"
-                        >
-                          {[
-                            "harian",
-                            "mingguan",
-                            "bulanan",
-                            "semesteran",
-                            "tahunan",
-                          ].map((mode) => (
-                            <button
-                              key={mode}
-                              onClick={() => {
-                                setDashboardMode(mode as any);
-                                setShowDashboardMenu(false);
-                              }}
-                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm font-bold capitalize transition-colors ${dashboardMode === mode ? "text-[#0f172b] bg-slate-50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
-                            >
-                              {mode}
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
+              <div className="px-4 flex flex-col gap-6 animate-fade-in pt-4 pb-8">
 
                 {/* REKAPITULASI & STATS */}
                 {(() => {
@@ -2395,16 +2964,16 @@ export default function App() {
                       <div className="flex flex-col">
                         <div className="flex w-full text-xs font-bold select-none relative z-10 -mb-[1px] mt-2">
                           <button
-                            onClick={() => setDashboardSubTab("keuangan")}
-                            className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${dashboardSubTab === "keuangan" ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-slate-900" : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"}`}
-                          >
-                            Keuangan
-                          </button>
-                          <button
                             onClick={() => setDashboardSubTab("pengeluaran")}
                             className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${dashboardSubTab === "pengeluaran" ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-rose-600" : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"}`}
                           >
                             Pengeluaran
+                          </button>
+                          <button
+                            onClick={() => setDashboardSubTab("keuangan")}
+                            className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${dashboardSubTab === "keuangan" ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-slate-900" : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"}`}
+                          >
+                            Keuangan
                           </button>
                           <button
                             onClick={() => setDashboardSubTab("pendapatan")}
@@ -2415,7 +2984,7 @@ export default function App() {
                         </div>
 
                         <div className={`bg-white border border-slate-200 p-5 flex flex-col gap-6 relative overflow-hidden ${
-                          dashboardSubTab === "keuangan" ? "rounded-b-[20px] rounded-tr-[20px]" :
+                          dashboardSubTab === "pengeluaran" ? "rounded-b-[20px] rounded-tr-[20px]" :
                           dashboardSubTab === "pendapatan" ? "rounded-b-[20px] rounded-tl-[20px]" :
                           "rounded-[20px]"
                         }`}>
@@ -2613,79 +3182,16 @@ export default function App() {
 
             {/* TAB: PARTS VIEW */}
             {activeTab === "parts" && (
-              <div className="px-4 py-6 flex flex-col gap-6 animate-fade-in relative z-10">
-                <div className="flex items-center justify-between mb-2 relative">
-                  <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
-                    <Wrench className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
-                    Suku Cadang
-                  </h2>
-                  <div className="flex gap-2 items-center">
-                    <button
-                      onClick={openAddPart}
-                      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setShowPartsHistoryModal(true)}
-                      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
-                    >
-                      <LucideIcons.History className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        setShowPartsGroupingMenu(!showPartsGroupingMenu)
-                      }
-                      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700 "
-                    >
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
-                  </div>
-                  {showPartsGroupingMenu && (
-                    <div className="absolute right-0 top-[50px] w-[200px] bg-white rounded-2xl border border-slate-200 p-2 z-50 animate-fade-in flex flex-col">
-                      <button
-                        onClick={() => {
-                          setPartsGrouping("semua");
-                          setShowPartsGroupingMenu(false);
-                        }}
-                        className={`text-left px-4 py-3 text-sm font-bold rounded-xl transition-colors ${partsGrouping === "semua" ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"}`}
-                      >
-                        Semua Komponen
-                      </button>
-                      <button
-                        onClick={() => {
-                          setPartsGrouping("status");
-                          setShowPartsGroupingMenu(false);
-                        }}
-                        className={`text-left px-4 py-3 text-sm font-bold rounded-xl transition-colors ${partsGrouping === "status" ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"}`}
-                      >
-                        Status (Warna)
-                      </button>
-                      <button
-                        onClick={() => {
-                          setPartsGrouping("kategori");
-                          setShowPartsGroupingMenu(false);
-                        }}
-                        className={`text-left px-4 py-3 text-sm font-bold rounded-xl transition-colors ${partsGrouping === "kategori" ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"}`}
-                      >
-                        Kategori (Bagian)
-                      </button>
-                    </div>
-                  )}
-                  {showPartsGroupingMenu && (
-                    <div
-                      className="fixed inset-0 z-40 bg-transparent"
-                      onClick={() => setShowPartsGroupingMenu(false)}
-                    />
-                  )}
-                </div>
-
+              <div className="px-4 flex flex-col gap-6 animate-fade-in relative z-10 pt-4 pb-8">
                 {/* TIPS/Peringatan Suku Cadang - Minimalist */}
                 {(() => {
                   const needsAttention = spareParts.filter((part) => {
                     const kmPassed = (lastLoggedOdometer || 0) - part.lastOdo;
                     const remain = Math.max(0, part.lifespanKm - kmPassed);
-                    return remain <= 500;
+                    const percent = part.lifespanKm > 0
+                      ? Math.min(100, Math.max(0, Math.round((remain / part.lifespanKm) * 100)))
+                      : 0;
+                    return percent < 40;
                   });
 
                   if (needsAttention.length > 0) {
@@ -2698,16 +3204,23 @@ export default function App() {
                             0,
                             part.lifespanKm - kmPassed,
                           );
-                          const isDanger = remain <= 500;
+                          const percent = part.lifespanKm > 0
+                            ? Math.min(100, Math.max(0, Math.round((remain / part.lifespanKm) * 100)))
+                            : 0;
+                          
+                          const isDanger = percent < 15;
+                          const isWarning = percent >= 15 && percent < 25;
+
+                          const cardStyle = isDanger
+                            ? "bg-red-50 text-red-600 border-red-100"
+                            : isWarning
+                              ? "bg-orange-50 text-orange-600 border-orange-100"
+                              : "bg-yellow-50 text-yellow-600 border-yellow-100";
 
                           return (
                             <div
                               key={part.id}
-                              className={`flex items-center gap-2.5 text-xs font-medium px-3 py-2.5 rounded-xl border cursor-pointer hover:opacity-80 transition-opacity ${
-                                isDanger
-                                  ? "bg-red-50 text-red-600 border-red-100"
-                                  : "bg-orange-50 text-orange-600 border-orange-100"
-                              }`}
+                              className={`flex items-center gap-2.5 text-xs font-medium px-3 py-2.5 rounded-xl border cursor-pointer hover:opacity-80 transition-opacity ${cardStyle}`}
                               onClick={() => setExpandedPartId(part.id)}
                             >
                               {isDanger ? (
@@ -2722,9 +3235,7 @@ export default function App() {
                               )}
                               <span className="flex-1">
                                 <strong>{part.name}</strong>{" "}
-                                {remain === 0
-                                  ? "harus segera diganti hari ini"
-                                  : `estimasi perlu diservis dalam ${remain.toLocaleString("id-ID")} km lagi`}
+                                {`Estimasi kondisi (${percent}%)`}
                               </span>
                             </div>
                           );
@@ -2759,10 +3270,14 @@ export default function App() {
                       const remain = Math.max(0, part.lifespanKm - kmPassed);
                       const estimatedDays = Math.ceil(remain / 20);
 
-                      const isBahaya = remain <= 0;
-                      const isServis = remain > 0 && remain <= 500;
-                      const isPeriksa = remain > 500 && remain <= 1500;
-                      const isAman = remain > 1500;
+                      const percent = part.lifespanKm > 0
+                        ? Math.min(100, Math.max(0, Math.round((remain / part.lifespanKm) * 100)))
+                        : 0;
+
+                      const isBahaya = percent < 15;
+                      const isServis = percent >= 15 && percent < 25;
+                      const isPeriksa = percent >= 25 && percent < 40;
+                      const isAman = percent >= 40;
 
                       const statusVal = isBahaya
                         ? 1
@@ -2771,13 +3286,7 @@ export default function App() {
                           : isPeriksa
                             ? 3
                             : 4;
-                      const statusText = isBahaya
-                        ? "Bahaya"
-                        : isServis
-                          ? "Servis"
-                          : isPeriksa
-                            ? "Periksa"
-                            : "Aman";
+                      const statusText = `Estimasi kondisi (${percent}%)`;
                       const statusColor = isBahaya
                         ? "text-red-500"
                         : isServis
@@ -2870,40 +3379,33 @@ export default function App() {
                           return (
                             <div
                               key={p.id}
-                              className="relative flex gap-2 items-center w-full group animate-fade-in"
+                              className="bg-white border border-slate-200 hover:border-slate-300 rounded-[20px] p-4 flex items-center justify-between transition-all w-full cursor-pointer group"
+                              onClick={() => openEditPart(p)}
                             >
-                              <div className="flex-[1_1_0%] min-w-0 relative">
-                                <SlideToConfirm
-                                  onConfirm={() => openServiceActionModal(p.id)}
-                                  colorClass={p.bgClass}
-                                  slideIcon={
-                                    <div className="relative flex items-center justify-center">
-                                      <IconComp
-                                        className={`w-6 h-6 ${p.statusColor}`}
-                                        strokeWidth={2}
-                                      />
-                                    </div>
-                                  }
-                                  onClickTrack={() => openEditPart(p)}
-                                  trackContent={
-                                    <div className="absolute inset-0 flex justify-between items-center pl-[68px] pr-4 h-full">
-                                      <div className="flex flex-col flex-1 min-w-0 pr-2 pt-[1px]">
-                                        <span className="text-white font-bold text-[15px] leading-tight truncate">
-                                          {p.name}
-                                        </span>
-                                        <span className="text-white/80 text-[13px] font-medium capitalize truncate mt-[1px]">
-                                          {p.statusText}
-                                        </span>
-                                      </div>
-                                      <span className="text-white font-mono text-[16px] font-bold tracking-tight shrink-0">
-                                        {(
-                                          p.lastOdo + p.lifespanKm
-                                        ).toLocaleString("id-ID")}{" "}
-                                        km
-                                      </span>
-                                    </div>
-                                  }
-                                />
+                              <div className="flex items-center gap-3 w-full">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${p.bgClass}`}>
+                                  <IconComp className={`w-6 h-6 ${p.statusColor}`} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex-1 min-w-0 pr-2 pt-0.5">
+                                  <div className="text-[15px] font-bold text-slate-800 leading-tight truncate">{p.name}</div>
+                                  <div className={`text-[12px] font-bold uppercase tracking-wider mt-0.5 truncate ${p.statusColor.replace('text-', 'text-').replace('50', '500')}`}>
+                                    {p.statusText}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <div className="font-mono text-base font-bold text-slate-800">
+                                    {p.remain.toLocaleString("id-ID")} <span className="text-xs text-slate-500">km</span>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openServiceActionModal(p.id);
+                                    }}
+                                    className="w-10 h-10 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors shrink-0 border border-slate-200 active:scale-95"
+                                  >
+                                    <Wrench className="w-5 h-5" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -2917,127 +3419,37 @@ export default function App() {
 
             {/* TAB 2: TRANSACTION LOGS HISTORY VIEW */}
             {activeTab === "history" && (
-              <div className="px-4 py-6 flex flex-col gap-5 animate-fade-in">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
-                    <MapPinned className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
-                    Aktivitas
-                  </h2>
-
-                  <div className="flex gap-2 items-center">
-                    <div className="relative">
-                      <button
-                        onClick={() =>
-                          setShowHistoryAddMenu(!showHistoryAddMenu)
-                        }
-                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors active:scale-95"
-                      >
-                        <Plus className="w-5 h-5 text-slate-500" />
-                      </button>
-
-                      <AnimatePresence>
-                        {showHistoryAddMenu && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute right-0 top-12 w-52 bg-white border border-slate-200 rounded-2xl z-50 overflow-hidden flex flex-col font-sans"
-                          >
-                            <button
-                              onClick={() => {
-                                setShowHistoryAddMenu(false);
-                                openIncomeModal();
-                              }}
-                              className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors border-b border-slate-100 flex items-center gap-2"
-                            >
-                              <TrendingUp className="w-4 h-4" />
-                              Pendapatan
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowHistoryAddMenu(false);
-                                openExpenseModal();
-                              }}
-                              className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors border-b border-slate-100 flex items-center gap-2"
-                            >
-                              <TrendingDown className="w-4 h-4" />
-                              Pengeluaran
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowHistoryAddMenu(false);
-                                setShowTripModal(true);
-                              }}
-                              className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center gap-2"
-                            >
-                              <Compass className="w-4 h-4" />
-                              Perjalanan
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowHistoryMenu(!showHistoryMenu)}
-                        className="w-10 h-10 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors flex items-center justify-center bg-white active:scale-95"
-                      >
-                        <MoreHorizontal className="w-5 h-5 text-slate-500" />
-                      </button>
-
-                      <AnimatePresence>
-                        {showHistoryMenu && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute right-0 top-[110%] w-40 bg-white rounded-2xl border border-slate-100 z-[100] py-2 overflow-hidden flex flex-col"
-                          >
-                            {[
-                              "harian",
-                              "mingguan",
-                              "bulanan",
-                              "semesteran",
-                              "tahunan",
-                              "semua",
-                            ].map((mode) => (
-                              <button
-                                key={mode}
-                                onClick={() => {
-                                  setHistoryMode(mode as any);
-                                  setShowHistoryMenu(false);
-                                }}
-                                className={`w-full text-left px-4 py-3 text-xs sm:text-sm font-bold capitalize transition-colors ${historyMode === mode ? "text-[#0f172b] bg-slate-50" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
-                              >
-                                {mode}
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                </div>
-
+              <div className="px-4 flex flex-col gap-5 animate-fade-in pt-4 pb-8">
                 <div className="flex flex-col">
                   {/* Sub-tab toggle */}
                   <div className="flex w-full text-xs font-bold select-none relative z-10 -mb-[1px]">
                     <button
                       onClick={() => setHistorySubTab("pengeluaran")}
-                      className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${historySubTab === "pengeluaran" ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-rose-600" : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"}`}
+                      className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${
+                        historySubTab === "pengeluaran"
+                          ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-rose-600"
+                          : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"
+                      }`}
                     >
                       Pengeluaran
                     </button>
                     <button
                       onClick={() => setHistorySubTab("riwayat")}
-                      className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${historySubTab === "riwayat" ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-slate-900" : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"}`}
+                      className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${
+                        historySubTab === "riwayat"
+                          ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-slate-900"
+                          : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"
+                      }`}
                     >
-                      Perjalanan
+                      Riwayat
                     </button>
                     <button
                       onClick={() => setHistorySubTab("pendapatan")}
-                      className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${historySubTab === "pendapatan" ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-emerald-600" : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"}`}
+                      className={`flex-1 py-3.5 px-0 text-center transition-all cursor-pointer whitespace-nowrap ${
+                        historySubTab === "pendapatan"
+                          ? "bg-white border-t border-l border-r border-slate-200 rounded-t-[20px] text-emerald-600"
+                          : "border-t border-l border-r border-transparent text-slate-400 hover:text-slate-700"
+                      }`}
                     >
                       Pendapatan
                     </button>
@@ -3100,7 +3512,6 @@ export default function App() {
                     if (!riwayatByDate[dStr])
                       riwayatByDate[dStr] = {
                         date: dStr,
-                        totalVol: 0,
                         items: [],
                         fallbackTime: tp.timestamp,
                       };
@@ -3115,7 +3526,44 @@ export default function App() {
                     });
                   });
 
-                  const riwayatList = Object.values(riwayatByDate).sort(
+                  recentFuelExpenses.forEach((fuel: any) => {
+                    const dObj = new Date(fuel.timestamp);
+                    const dStr = dObj.toLocaleDateString(
+                      lang === "id" ? "id-ID" : "en-US",
+                      { day: "numeric", month: "long", year: "numeric" },
+                    );
+                    if (!riwayatByDate[dStr])
+                      riwayatByDate[dStr] = { date: dStr, items: [], fallbackTime: fuel.timestamp };
+                    riwayatByDate[dStr].items.push({
+                      type: "bbm",
+                      id: fuel.id,
+                      volume: fuel.volume,
+                      price: fuel.price,
+                      timestamp: fuel.timestamp,
+                    });
+                  });
+
+                  recentGeneralExpenses.filter((e: any) => e.platform === "Servis & Suku Cadang").forEach((part: any) => {
+                    const dObj = new Date(part.timestamp);
+                    const dStr = dObj.toLocaleDateString(
+                      lang === "id" ? "id-ID" : "en-US",
+                      { day: "numeric", month: "long", year: "numeric" },
+                    );
+                    if (!riwayatByDate[dStr])
+                      riwayatByDate[dStr] = { date: dStr, items: [], fallbackTime: part.timestamp };
+                    riwayatByDate[dStr].items.push({
+                      type: "parts",
+                      id: part.id,
+                      name: part.name,
+                      cost: part.cost,
+                      timestamp: part.timestamp,
+                    });
+                  });
+
+                  const riwayatList = Object.values(riwayatByDate).map((day: any) => {
+                    day.items.sort((a: any, b: any) => b.timestamp - a.timestamp);
+                    return day;
+                  }).sort(
                     (a: any, b: any) => {
                       const tA = a.items[0]?.timestamp || a.fallbackTime;
                       const tB = b.items[0]?.timestamp || b.fallbackTime;
@@ -3183,91 +3631,88 @@ export default function App() {
                                 {day.items.map((item: any) => (
                                   <div
                                     key={item.id}
-                                    className="relative overflow-hidden rounded-2xl w-full bg-rose-500"
+                                    className="bg-white border border-rose-100 hover:border-rose-200 rounded-2xl p-4 flex items-center justify-between transition-all w-full cursor-pointer"
+                                    onClick={() => {
+                                      if (item.type === "general") {
+                                        openExpenseModal(item);
+                                      } else {
+                                        openEditModal(item);
+                                      }
+                                    }}
                                   >
-                                    <div className="absolute inset-y-0 right-0 w-24 flex items-center justify-end pr-5 text-white">
-                                      <Trash2 className="w-5 h-5" />
-                                    </div>
-                                    <motion.div
-                                      drag="x"
-                                      dragConstraints={{ left: -80, right: 0 }}
-                                      onDragEnd={(e, info) => {
-                                        if (info.offset.x < -40) {
-                                          if (confirm("Hapus transaksi ini?")) {
-                                            if (item.type === "general") {
-                                              deleteExpense(item.id);
-                                            } else {
-                                              handleDeleteItem(item.id);
-                                            }
-                                          }
-                                        }
-                                      }}
-                                      onClick={() => {
-                                        if (item.type === "general") {
-                                          openExpenseModal(item);
-                                        } else {
-                                          openEditModal(item);
-                                        }
-                                      }}
-                                      className="bg-white border border-rose-100 rounded-2xl p-4 flex items-center justify-between transition-all relative z-10 w-full active:bg-slate-50 cursor-pointer"
-                                    >
-                                      <div className="flex items-center gap-3 w-full">
-                                        <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                                    <div className="flex items-center gap-3 w-full">
+                                      <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                                        {item.type === "general" ? (
+                                          <TrendingDown className="w-5 h-5" />
+                                        ) : (
+                                          <Flame className="w-5 h-5" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-bold text-slate-800">
+                                          {item.type === "general"
+                                            ? item.platform
+                                              ? `${item.platform} - ${item.notes || "Pengeluaran"}`
+                                              : item.notes || "Pengeluaran"
+                                            : item.fuelType}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">
                                           {item.type === "general" ? (
-                                            <TrendingDown className="w-5 h-5" />
+                                            <div className="flex flex-wrap gap-1">
+                                              {item.odometer > 0 ? (
+                                                <span>
+                                                  Odo: {item.odometer} Km
+                                                </span>
+                                              ) : null}
+                                              {item.distance > 0 ? (
+                                                <span>
+                                                  | Jarak: {item.distance} Km
+                                                </span>
+                                              ) : null}
+                                              {item.otherCost !== 0 &&
+                                              item.otherCost !== undefined ? (
+                                                <span>
+                                                  | Lain:{" "}
+                                                  {formatCurrency(
+                                                    item.otherCost || 0,
+                                                  )}
+                                                </span>
+                                              ) : null}
+                                            </div>
                                           ) : (
-                                            <Flame className="w-5 h-5" />
+                                            `BBM ${formatNumber(item.volume, 2)} ${
+                                              volUnit === "gallon"
+                                                ? "Gal"
+                                                : "L"
+                                            }`
                                           )}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-bold text-slate-800">
-                                            {item.type === "general"
-                                              ? item.platform
-                                                ? `${item.platform} - ${item.notes || "Pengeluaran"}`
-                                                : item.notes || "Pengeluaran"
-                                              : item.fuelType}
-                                          </div>
-                                          <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">
-                                            {item.type === "general" ? (
-                                              <div className="flex flex-wrap gap-1">
-                                                {item.odometer > 0 ? (
-                                                  <span>
-                                                    Odo: {item.odometer} Km
-                                                  </span>
-                                                ) : null}
-                                                {item.distance > 0 ? (
-                                                  <span>
-                                                    | Jarak: {item.distance} Km
-                                                  </span>
-                                                ) : null}
-                                                {item.otherCost !== 0 &&
-                                                item.otherCost !== undefined ? (
-                                                  <span>
-                                                    | Lain:{" "}
-                                                    {formatCurrency(
-                                                      item.otherCost || 0,
-                                                    )}
-                                                  </span>
-                                                ) : null}
-                                              </div>
-                                            ) : (
-                                              `BBM ${formatNumber(item.volume, 2)} ${
-                                                volUnit === "gallon"
-                                                  ? "Gal"
-                                                  : "L"
-                                              }`
-                                            )}
-                                          </div>
-                                        </div>
-                                        <div className="font-mono text-base font-bold text-rose-600 pl-2">
+                                      </div>
+                                      <div className="flex items-center gap-3 shrink-0">
+                                        <div className="font-mono text-base font-bold text-rose-600">
                                           {formatCurrency(
                                             item.type === "general"
                                               ? item.cost
                                               : item.totalPrice,
                                           )}
                                         </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm("Hapus transaksi ini?")) {
+                                              if (item.type === "general") {
+                                                deleteExpense(item.id);
+                                              } else {
+                                                handleDeleteItem(item.id);
+                                              }
+                                            }
+                                          }}
+                                          className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-500 transition-colors shrink-0"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
                                       </div>
-                                    </motion.div>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -3306,61 +3751,46 @@ export default function App() {
                                     return (
                                       <div
                                         key={item.id || idx}
-                                        className="relative overflow-hidden rounded-2xl w-full bg-rose-500"
+                                        className="bg-white border border-emerald-100 hover:border-emerald-200 rounded-2xl p-4 flex items-center justify-between transition-all w-full cursor-pointer"
+                                        onClick={() => {
+                                          setSelectedTripForEdit(item);
+                                          setShowTripModal(true);
+                                        }}
                                       >
-                                        <div className="absolute inset-y-0 right-0 w-24 flex items-center justify-end pr-5 text-white">
-                                          <Trash2 className="w-5 h-5" />
-                                        </div>
-                                        <motion.div
-                                          drag="x"
-                                          dragConstraints={{
-                                            left: -80,
-                                            right: 0,
-                                          }}
-                                          onDragEnd={(e, info) => {
-                                            if (info.offset.x < -40) {
-                                              if (
-                                                confirm("Hapus perjalanan ini?")
-                                              ) {
-                                                const updated =
-                                                  tripHistory.filter(
-                                                    (t: any) =>
-                                                      t.id !== item.id,
-                                                  );
-                                                setTripHistory(updated);
-                                                localStorage.setItem(
-                                                  "fc_trip_history",
-                                                  JSON.stringify(updated),
-                                                );
-                                              }
-                                            }
-                                          }}
-                                          onClick={() => {
-                                            setSelectedTripForEdit(item);
-                                            setShowTripModal(true);
-                                          }}
-                                          className="bg-white border border-emerald-100 rounded-2xl p-4 flex items-center justify-between transition-all relative z-10 w-full active:bg-slate-50 cursor-pointer"
-                                        >
-                                          <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-                                              <MapPinned className="w-5 h-5" />
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                                            <MapPinned className="w-5 h-5" />
+                                          </div>
+                                          <div>
+                                            <div className="text-sm font-bold text-slate-800">
+                                              {item.originName &&
+                                              item.destinationName
+                                                ? `${item.originName} - ${item.destinationName}`
+                                                : "Perjalanan"}
                                             </div>
-                                            <div>
-                                              <div className="text-sm font-bold text-slate-800">
-                                                {item.originName &&
-                                                item.destinationName
-                                                  ? `${item.originName} - ${item.destinationName}`
-                                                  : "Perjalanan"}
-                                              </div>
-                                              <div className="text-[11px] font-bold tracking-wide text-slate-400 uppercase mt-0.5">
-                                                {`${item.distance?.toFixed(1)} km`}
-                                              </div>
+                                            <div className="text-[11px] font-bold tracking-wide text-slate-400 uppercase mt-0.5">
+                                              {`${item.distance?.toFixed(1)} km`}
                                             </div>
                                           </div>
-                                          <div className="font-mono text-sm font-bold text-emerald-600 flex items-center gap-1">
+                                        </div>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                          <div className="font-mono text-sm font-bold text-emerald-600">
                                             {item.estFuelUsed?.toFixed(2)} L
                                           </div>
-                                        </motion.div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (confirm("Hapus perjalanan ini?")) {
+                                                const updated = tripHistory.filter((t: any) => t.id !== item.id);
+                                                setTripHistory(updated);
+                                                localStorage.setItem("fc_trip_history", JSON.stringify(updated));
+                                              }
+                                            }}
+                                            className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-500 transition-colors shrink-0"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
                                       </div>
                                     );
                                   }
@@ -3368,74 +3798,55 @@ export default function App() {
                                   return (
                                     <div
                                       key={item.id || idx}
-                                      className="relative overflow-hidden rounded-2xl w-full bg-rose-500"
-                                    >
-                                      {item.type === "fuel" && (
-                                        <div className="absolute inset-y-0 right-0 w-24 flex items-center justify-end pr-5 text-white">
-                                          <Trash2 className="w-5 h-5" />
-                                        </div>
-                                      )}
-                                      <motion.div
-                                        drag={
-                                          item.type === "fuel" ? "x" : false
+                                      className="bg-white border border-slate-100 hover:border-slate-200 rounded-2xl p-4 flex items-center justify-between transition-all w-full cursor-pointer"
+                                      onClick={() => {
+                                        if (item.type === "bbm") {
+                                          openEditModal(item);
                                         }
-                                        dragConstraints={{
-                                          left: -80,
-                                          right: 0,
-                                        }}
-                                        onDragEnd={(e, info) => {
-                                          if (
-                                            item.type === "fuel" &&
-                                            info.offset.x < -40
-                                          ) {
-                                            if (
-                                              confirm("Hapus catatan BBM ini?")
-                                            ) {
-                                              handleDeleteItem(item.id);
-                                            }
-                                          }
-                                        }}
-                                        onClick={() => {
-                                          if (item.type === "fuel") {
-                                            openEditModal(item);
-                                          }
-                                        }}
-                                        className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between transition-all relative z-10 w-full active:bg-slate-50 cursor-pointer"
-                                      >
-                                        <div className="flex items-center gap-3 w-full">
-                                          <div className="w-10 h-10 rounded-full bg-sky-50 text-sky-500 flex items-center justify-center shrink-0">
-                                            {item.type === "fuel" ? (
-                                              <Droplets className="w-5 h-5" />
-                                            ) : item.icon === "Wrench" ? (
-                                              <Wrench className="w-5 h-5" />
-                                            ) : (
-                                              <SettingsIcon className="w-5 h-5" />
-                                            )}
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-3 w-full">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.type === "bbm" ? "bg-sky-50 text-sky-500" : "bg-orange-50 text-orange-500"}`}>
+                                          {item.type === "bbm" ? (
+                                            <Droplets className="w-5 h-5" />
+                                          ) : (
+                                            <Wrench className="w-5 h-5" />
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-bold text-slate-800 truncate">
+                                            {item.type === "bbm"
+                                              ? "Isi BBM"
+                                              : "Servis " + item.name}
                                           </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-bold text-slate-800">
-                                              {item.type === "fuel"
-                                                ? "Isi BBM (" +
-                                                  item.fuelType +
-                                                  ")"
-                                                : "Servis " + item.name}
-                                            </div>
-                                            <div className="text-[11px] font-bold tracking-wide text-slate-400 uppercase mt-0.5">
-                                              {item.type === "fuel"
-                                                ? item.odoBefore.toLocaleString(
-                                                    "id-ID",
-                                                  ) + " km"
-                                                : "Pembaruan komponen"}
-                                            </div>
+                                          <div className="text-[11px] font-bold tracking-wide text-slate-400 uppercase mt-0.5">
+                                            {item.type === "bbm"
+                                              ? formatCurrency(item.price)
+                                              : formatCurrency(item.cost)}
                                           </div>
-                                          {item.type === "fuel" && (
-                                            <div className="font-mono text-sm font-bold text-sky-600 pl-2">
+                                        </div>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                          {item.type === "bbm" && (
+                                            <div className="font-mono text-sm font-bold text-sky-600">
                                               +{formatNumber(item.volume, 2)}{" "}
                                               {volUnit === "gallon" ? "G" : "L"}
                                             </div>
                                           )}
+                                          {item.type === "bbm" && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (confirm("Hapus catatan BBM ini?")) {
+                                                  handleDeleteItem(item.id);
+                                                }
+                                              }}
+                                              className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-500 transition-colors shrink-0"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          )}
                                         </div>
-                                      </motion.div>
+                                      </div>
                                     </div>
                                   );
                                 })}
@@ -3471,56 +3882,48 @@ export default function App() {
                                   {day.items.map((item: any) => (
                                     <div
                                       key={item.id}
-                                      className="relative overflow-hidden rounded-2xl w-full bg-rose-500"
+                                      className="bg-white border border-emerald-100 hover:border-emerald-200 rounded-2xl p-4 flex items-center justify-between transition-all w-full cursor-pointer"
+                                      onClick={() => openIncomeModal(item)}
                                     >
-                                      <div className="absolute inset-y-0 right-0 w-24 flex items-center justify-end pr-5 text-white">
-                                        <Trash2 className="w-5 h-5" />
-                                      </div>
-                                      <motion.div
-                                        drag="x"
-                                        dragConstraints={{
-                                          left: -80,
-                                          right: 0,
-                                        }}
-                                        onDragEnd={(e, info) => {
-                                          if (info.offset.x < -40) {
-                                            if (
-                                              confirm("Hapus pendapatan ini?")
-                                            ) {
-                                              deleteIncome(item.id);
-                                            }
-                                          }
-                                        }}
-                                        onClick={() => openIncomeModal(item)}
-                                        className="bg-white border border-emerald-100 rounded-2xl p-4 flex items-center justify-between transition-all relative z-10 w-full active:bg-slate-50 cursor-pointer"
-                                      >
-                                        <div className="flex items-center gap-3 w-full">
-                                          <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-                                            <TrendingUp className="w-5 h-5" />
+                                      <div className="flex items-center gap-3 w-full">
+                                        <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                                          <TrendingUp className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-bold text-slate-800">
+                                            {item.platform
+                                              ? item.platform
+                                              : "Pendapatan"}
                                           </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-sm font-bold text-slate-800">
-                                              {item.platform
-                                                ? item.platform
-                                                : "Pendapatan"}
-                                            </div>
-                                            <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
-                                              {item.distance > 0
-                                                ? `${item.distance} km `
-                                                : ""}
-                                              {item.ratePerKm > 0
-                                                ? `@ ${formatCurrency(item.ratePerKm)}/km `
-                                                : ""}
-                                              {item.otherCost !== 0
-                                                ? `| Lain: ${formatCurrency(item.otherCost || 0)}`
-                                                : ""}
-                                            </div>
-                                          </div>
-                                          <div className="font-mono text-base font-bold text-emerald-600 pl-2">
-                                            {formatCurrency(item.total)}
+                                          <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                                            {item.distance > 0
+                                              ? `${item.distance} km `
+                                              : ""}
+                                            {item.ratePerKm > 0
+                                              ? `@ ${formatCurrency(item.ratePerKm)}/km `
+                                              : ""}
+                                            {item.otherCost !== 0
+                                              ? `| Lain: ${formatCurrency(item.otherCost || 0)}`
+                                              : ""}
                                           </div>
                                         </div>
-                                      </motion.div>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                          <div className="font-mono text-base font-bold text-emerald-600">
+                                            {formatCurrency(item.total)}
+                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (confirm("Hapus pendapatan ini?")) {
+                                                deleteIncome(item.id);
+                                              }
+                                            }}
+                                            className="w-8 h-8 rounded-full bg-rose-50 hover:bg-rose-100 flex items-center justify-center text-rose-500 transition-colors shrink-0"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -3541,11 +3944,6 @@ export default function App() {
             {/* TAB 4: MAP / SPBU LOCATOR */}
             {activeTab === "map" && (
               <div className="px-4 py-5 flex flex-col gap-4 animate-fade-in flex-grow">
-                <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  <Map className="w-5 h-5 text-indigo-500" />
-                  SPBU Terdekat
-                </h2>
-
                 <div className="w-full bg-slate-200 rounded-2xl overflow-hidden border border-slate-300 relative flex-grow min-h-[350px]">
                   {/* Faked Google Maps background (using an embedded iframe wrapper or a generic styling) */}
                   <div className="absolute inset-0 bg-[url('https://maps.gstatic.com/tactile/basemap_styler/v6/roadmap_256_1x.png')] bg-cover bg-center opacity-75 backdrop-contrast-125" />
@@ -3608,15 +4006,9 @@ export default function App() {
             )}
 
             {activeTab === "settings" && (
-              <div className="px-4 py-6 flex flex-col gap-5 animate-fade-in relative pb-6">
+              <div className="px-4 flex flex-col gap-5 animate-fade-in relative pt-4 pb-8">
                 {settingsTab === "main" ? (
                   <>
-                    <div className="flex items-center justify-between mb-2">
-                      <h2 className="text-[22px] font-bold tracking-tight font-sans text-[#0f172b] flex items-center justify-start gap-[15px]">
-                        <SettingsIcon className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] text-[#0f172b]" />
-                        Pengaturan
-                      </h2>
-                    </div>
                     <div className="flex flex-col gap-3 mt-2">
                       <button
                         onClick={() => setSettingsTab("localization")}
@@ -3837,6 +4229,135 @@ export default function App() {
                         </span>
 
                         <div className="bg-white border border-slate-200 rounded-3xl p-4 flex flex-col gap-3 text-xs leading-none">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-bold text-slate-500 uppercase">
+                              {lang === "id" ? "Nama Model Kendaraan" : "Vehicle Model Name"}
+                            </label>
+                            <input
+                              type="text"
+                              value={vehicleModel}
+                              onChange={(e) => setVehicleModel(e.target.value)}
+                              placeholder="Contoh: Uwinfly, Honda Beat"
+                              className="py-2.5 px-3 bg-slate-50 text-slate-800 font-bold border border-slate-200 rounded-xl outline-none mb-2"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 mb-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">
+                              {lang === "id" ? "Tipe Kendaraan" : "Vehicle Type"}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <button
+                                onClick={() => setVehicleType("mobil")}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                  vehicleType === "mobil"
+                                    ? "border-blue-500 bg-blue-50 text-blue-600 font-bold"
+                                    : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                }`}
+                              >
+                                <LucideIcons.Car className="w-4 h-4 stroke-[2]" />
+                                <span>{lang === "id" ? "Mobil" : "Car"}</span>
+                              </button>
+                              <button
+                                onClick={() => setVehicleType("motor")}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                  vehicleType === "motor"
+                                    ? "border-blue-500 bg-blue-50 text-blue-600 font-bold"
+                                    : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                }`}
+                              >
+                                {(() => {
+                                  const IconComponent = LucideIcons.Bike;
+                                  return IconComponent ? <IconComponent className="w-4 h-4 stroke-[2]" /> : null;
+                                })()}
+                                <span>Motorbike</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 mb-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">
+                              {vehicleType === "motor"
+                                ? (lang === "id" ? "Tipe Motor" : "Motorbike Type")
+                                : (lang === "id" ? "Tipe Mobil" : "Car Type")
+                              }
+                            </label>
+                             <div className={`grid ${vehicleType === "mobil" ? "grid-cols-3" : "grid-cols-2"} gap-2 mt-1`}>
+                               <button
+                                 onClick={() => setMotorType("bensin")}
+                                 className={`flex items-center justify-center gap-2 py-2.5 px-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                   motorType === "bensin"
+                                     ? "border-red-500 bg-red-50 text-red-600 font-bold"
+                                     : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                 }`}
+                               >
+                                 <LucideIcons.Fuel className="w-4 h-4 stroke-[2]" />
+                                 <span>Bensin</span>
+                               </button>
+
+                               {vehicleType === "mobil" && (
+                                 <button
+                                   onClick={() => setMotorType("hybrid")}
+                                   className={`flex items-center justify-center gap-2 py-2.5 px-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                     motorType === "hybrid"
+                                       ? "border-red-500 bg-red-50 text-red-600 font-bold"
+                                       : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                   }`}
+                                 >
+                                   {(() => {
+                                     const LeafIcon = (LucideIcons as any).Leaf || LucideIcons.Sprout;
+                                     return <LeafIcon className="w-4 h-4 stroke-[2]" />;
+                                   })()}
+                                   <span>Hybrid</span>
+                                 </button>
+                               )}
+
+                               <button
+                                 onClick={() => setMotorType("ev")}
+                                 className={`flex items-center justify-center gap-2 py-2.5 px-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                   motorType === "ev"
+                                     ? "border-red-500 bg-red-50 text-red-600 font-bold"
+                                     : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                 }`}
+                               >
+                                 <LucideIcons.Zap className="w-4 h-4 stroke-[2]" />
+                                 <span>EV</span>
+                               </button>
+                             </div>
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 mb-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">
+                              {lang === "id" ? "Tipe Transmisi" : "Transmission Type"}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <button
+                                onClick={() => setTransmissionType("manual")}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                  transmissionType === "manual"
+                                    ? "border-orange-500 bg-orange-50 text-orange-600 font-bold"
+                                    : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                }`}
+                              >
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current" strokeWidth={2.5}>
+                                  <path d="M6 5v14M12 5v14M18 5v14M6 12h12" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                <span>Manual</span>
+                              </button>
+                              <button
+                                onClick={() => setTransmissionType("otomatis")}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                                  transmissionType === "otomatis"
+                                    ? "border-orange-500 bg-orange-50 text-orange-600 font-bold"
+                                    : "border-slate-200 text-slate-500 hover:border-slate-300 bg-slate-50"
+                                }`}
+                              >
+                                <LucideIcons.Gauge className="w-4 h-4 stroke-[2]" />
+                                <span>{lang === "id" ? "Otomatis" : "Automatic"}</span>
+                              </button>
+                            </div>
+                          </div>
+
                           <div className="flex flex-col gap-1.5">
                             <label className="text-xs font-bold text-slate-500 uppercase">
                               Nomor Polisi / Plat
@@ -4194,6 +4715,8 @@ export default function App() {
               />
             </button>
           </div>
+          </>
+          )}
 
           {/* STEP-BY-STEP MODAL OVERLAY */}
           <AnimatePresence>
