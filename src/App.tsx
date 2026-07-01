@@ -341,6 +341,20 @@ export const getFuelTheme = (profileName: string, colorKey?: string) => {
   };
 };
 
+const AppDrawerIcon = ({ className = "" }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+  >
+    <circle cx="7.5" cy="7.5" r="2.5" />
+    <circle cx="16.5" cy="7.5" r="2.5" />
+    <circle cx="7.5" cy="16.5" r="2.5" />
+    <circle cx="16.5" cy="16.5" r="2.5" />
+  </svg>
+);
+
 const SlideToConfirm = ({
   onConfirm,
   onPlusClick,
@@ -3095,7 +3109,7 @@ export default function App() {
                                     return (
                                       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2.5 flex items-center gap-1">
-                                          <MapPinned className="w-3 h-3" />{" "}
+                                          <AppDrawerIcon className="w-3 h-3" />{" "}
                                           {p1Name}
                                         </span>
                                         <span className="text-sm font-bold text-slate-700 font-mono">
@@ -3113,7 +3127,7 @@ export default function App() {
                                     return (
                                       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center">
                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2.5 flex items-center gap-1">
-                                          <MapPinned className="w-3 h-3" />{" "}
+                                          <AppDrawerIcon className="w-3 h-3" />{" "}
                                           {p2Name}
                                         </span>
                                         <span className="text-sm font-bold text-slate-700 font-mono">
@@ -3137,7 +3151,7 @@ export default function App() {
                                     return (
                                       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center relative overflow-hidden">
                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2.5 flex items-center gap-1 z-10 w-full justify-center px-1 truncate">
-                                          <TrendingUp className="w-3 h-3" />{" "}
+                                          <AppDrawerIcon className="w-3 h-3" />{" "}
                                           AVG. / KM
                                         </span>
                                         <span className="text-sm font-bold text-slate-700 font-mono z-10">
@@ -3159,7 +3173,7 @@ export default function App() {
                                     return (
                                       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center relative overflow-hidden">
                                         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2.5 flex items-center gap-1 z-10 w-full justify-center px-1 truncate">
-                                          <TrendingUp className="w-3 h-3" />{" "}
+                                          <AppDrawerIcon className="w-3 h-3" />{" "}
                                           AVG. / KM
                                         </span>
                                         <span className="text-sm font-bold text-slate-700 font-mono z-10">
@@ -3379,33 +3393,37 @@ export default function App() {
                           return (
                             <div
                               key={p.id}
-                              className="bg-white border border-slate-200 hover:border-slate-300 rounded-[20px] p-4 flex items-center justify-between transition-all w-full cursor-pointer group"
-                              onClick={() => openEditPart(p)}
+                              className="relative flex gap-2 items-center w-full group animate-fade-in"
                             >
-                              <div className="flex items-center gap-3 w-full">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${p.bgClass}`}>
-                                  <IconComp className={`w-6 h-6 ${p.statusColor}`} strokeWidth={2.5} />
-                                </div>
-                                <div className="flex-1 min-w-0 pr-2 pt-0.5">
-                                  <div className="text-[15px] font-bold text-slate-800 leading-tight truncate">{p.name}</div>
-                                  <div className={`text-[12px] font-bold uppercase tracking-wider mt-0.5 truncate ${p.statusColor.replace('text-', 'text-').replace('50', '500')}`}>
-                                    {p.statusText}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <div className="font-mono text-base font-bold text-slate-800">
-                                    {p.remain.toLocaleString("id-ID")} <span className="text-xs text-slate-500">km</span>
-                                  </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openServiceActionModal(p.id);
-                                    }}
-                                    className="w-10 h-10 rounded-full bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors shrink-0 border border-slate-200 active:scale-95"
-                                  >
-                                    <Wrench className="w-5 h-5" />
-                                  </button>
-                                </div>
+                              <div className="flex-[1_1_0%] min-w-0 relative">
+                                <SlideToConfirm
+                                  onConfirm={() => openServiceActionModal(p.id)}
+                                  colorClass={p.bgClass}
+                                  slideIcon={
+                                    <div className="relative flex items-center justify-center">
+                                      <IconComp
+                                        className={`w-6 h-6 ${p.statusColor}`}
+                                        strokeWidth={2}
+                                      />
+                                    </div>
+                                  }
+                                  onClickTrack={() => openEditPart(p)}
+                                  trackContent={
+                                    <div className="absolute inset-0 flex justify-between items-center pl-[68px] pr-4 h-full">
+                                      <div className="flex flex-col flex-1 min-w-0 pr-2 pt-[1px]">
+                                        <span className="text-white font-bold text-[15px] leading-tight truncate">
+                                          {p.name}
+                                        </span>
+                                        <span className="text-white/80 text-[13px] font-medium capitalize truncate mt-[1px]">
+                                          {p.statusText}
+                                        </span>
+                                      </div>
+                                      <span className="text-white font-mono text-[16px] font-bold tracking-tight shrink-0">
+                                        {p.remain.toLocaleString("id-ID")} km
+                                      </span>
+                                    </div>
+                                  }
+                                />
                               </div>
                             </div>
                           );
@@ -4076,7 +4094,7 @@ export default function App() {
                       >
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center">
-                            <MapPinned className="w-5 h-5" />
+                            <AppDrawerIcon className="w-5 h-5" />
                           </div>
                           <div className="text-left">
                             <h3 className="font-bold text-slate-800 text-sm">
